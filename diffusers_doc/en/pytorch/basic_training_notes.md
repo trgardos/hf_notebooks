@@ -1,4 +1,4 @@
-How is the denoising step performed in the DDPMScheduler?
+**How is the denoising step performed in the DDPMScheduler?**
 
 The DDPMScheduler (and other diffusion schedulers) performs this denoising step using a specific mathematical formula derived from the probabilistic framework of Diffusion Models. The goal is to go from a noisy image $x_t$ at timestep $t$ to a slightly less noisy image $x_{t-1}$ at timestep $t-1$.
 
@@ -23,4 +23,16 @@ Let's break down the key components:
 In essence, the formula uses the current noisy image $x_t$ and the model's prediction of the noise ($\epsilon_\theta$) to algebraically 'undo' the forward noise addition. The coefficients $\alpha_t$ and $\bar{\alpha}_t$ ensure that the 'undoing' is consistent with the noise schedule. The $\sigma_t * z$ term is crucial for generating diverse samples, preventing the reverse process from being entirely deterministic.
 
 The DDPMScheduler handles all these calculations internally when you call its step() method during inference.
+
+---
+
+**the loss is calculated with the random noise image 'noise', but isn't that scaled when it is added to the clean image for time step t? so shouldn't the loss be calculated with the scaled noise not the original noise?**
+
+That is a very sharp observation! You are touching on a key detail of the DDPM derivation.
+
+Mathematically, the noised image is defined as: $x_t = \sqrt{\bar{\alpha}_t} x_0 + \sqrt{1 - \bar{\alpha}_t} \epsilon$ 
+
+Where $\epsilon$ is the original, unscaled Gaussian noise (with mean 0 and variance 1). While the actual contribution to the image is scaled by $\sqrt{1 - \bar{\alpha}_t}$, the model is traditionally tasked with predicting the original unit-variance noise $\epsilon$.
+
+By predicting the unscaled noise, the loss function simplifies to a simple Mean Squared Error against a standard normal distribution, and the scheduler handles all the $\alpha$ scaling factors internally when it's time to subtract that noise to get to $x_{t-1}$. In short: we want the model to tell us 'what was the shape of the random noise added', regardless of how much its volume was turned up or down at that specific timestep.
 
